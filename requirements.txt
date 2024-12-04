@@ -1,0 +1,5 @@
+streamlit
+experta
+pandas
+fuzzywuzzy
+scikit-fuzzy
