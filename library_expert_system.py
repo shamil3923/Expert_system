@@ -25,9 +25,9 @@ class LibraryExpertSystem(KnowledgeEngine):
         """Recommend resources based on user inputs."""
         # Normalize input values
         topic = topic.strip().lower()
-        language = language.strip().lower()
+        language = language.strip().lower() if language else None  # Handle missing language
 
-        print(f"[DEBUG] Filtering {resource_type} for {user_type}s on topic '{topic}' in '{language}' with rating >= {min_rating}")
+        print(f"[DEBUG] Filtering {resource_type} for {user_type}s on topic '{topic}' in '{language if language else 'all languages'}' with rating >= {min_rating}")
 
         # Filter recommendations based on criteria
         recommendations = [
@@ -39,7 +39,7 @@ class LibraryExpertSystem(KnowledgeEngine):
             for item in self.data
             if item['type'] == resource_type
                and topic in item['topic'].lower()
-               and language in item['language'].lower()
+               and (language is None or language in item['language'].lower())  # Include all languages if None
                and item['rating'] >= min_rating
                and (  # User-specific preferences
                        (user_type == 'student' and resource_type == 'book') or

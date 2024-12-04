@@ -11,15 +11,18 @@ def main():
     user_type = st.selectbox("Who are you?", ["", "student", "teacher", "researcher"])
     topic = st.text_input("Enter a topic of interest (e.g., AI, Data Science)").strip()
     resource_type = st.selectbox("What type of resource do you prefer?", ["", "book", "journal", "article"])
-    language = st.selectbox("Preferred language", ["", "English", "French"]).strip()
+    language = st.selectbox("Preferred language (leave blank for any language)", ["", "English", "French"]).strip()
     min_rating = st.slider("Minimum rating", 0.0, 5.0, 4.0, 0.1)
 
     # Recommendation button
     if st.button("Get Recommendation"):
         # Validate inputs
-        if not user_type or not topic or not resource_type or not language:
-            st.error("Please complete all fields to get a recommendation.")
+        if not user_type or not topic or not resource_type:
+            st.error("Please complete all required fields: User Type, Topic, and Resource Type.")
             return
+
+        # Handle missing language
+        language = language if language else None
 
         # Initialize the expert system
         engine = LibraryExpertSystem()
