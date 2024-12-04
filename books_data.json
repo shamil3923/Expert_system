@@ -1,5 +1,5 @@
 [
-    {"type": "book", "topic": "AI", "title": "Artificial Intelligence: A Guide", "language": "English", "rating": 4.5},
+    {"type": "book", "topic": "AI", "title": "Artificial Intelligence: A Guide", "language": "English", "rating": 3.9},
     {"type": "book", "topic": "AI", "title": "Introduction to Artificial Intelligence", "language": "French", "rating": 4.5},
     {"type": "journal", "topic": "AI", "title": "Journal of AI Research", "language": "English", "rating": 4.7},
     {"type": "article", "topic": "AI", "title": "Recent Advances in AI", "language": "French", "rating": 4.3},

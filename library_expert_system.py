@@ -5,32 +5,29 @@ import json
 def load_data():
     """Load data from the JSON file."""
     try:
-        with open("books_data.json", "r") as file:
-            return json.load(file)
+        with open ( "books_data.json", "r" ) as file:
+            return json.load ( file )
     except FileNotFoundError:
-        print("Error: books_data.json not found.")
+        print ( "Error: books_data.json not found." )
         return []
 
 
-class LibraryExpertSystem(KnowledgeEngine):
+class LibraryExpertSystem ( KnowledgeEngine ):
     """Expert system for library recommendations."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data = load_data()
+        super ().__init__ ( *args, **kwargs )
+        self.data=load_data ()
 
-    @Rule(Fact(user_type=MATCH.user_type), Fact(topic=MATCH.topic), Fact(resource_type=MATCH.resource_type),
-          Fact(language=MATCH.language), Fact(min_rating=MATCH.min_rating))
+    @Rule ( Fact ( user_type=MATCH.user_type ), Fact ( topic=MATCH.topic ), Fact ( resource_type=MATCH.resource_type ),
+            Fact ( language=MATCH.language ), Fact ( min_rating=MATCH.min_rating ) )
     def recommend_resources(self, user_type, topic, resource_type, language, min_rating):
         """Recommend resources based on user inputs."""
-        # Normalize input values
-        topic = topic.strip().lower()
-        language = language.strip().lower() if language else None  # Handle missing language
+        topic=topic.strip ().lower ()
+        language=language.strip ().lower ()
 
-        print(f"[DEBUG] Filtering {resource_type} for {user_type}s on topic '{topic}' in '{language if language else 'all languages'}' with rating >= {min_rating}")
-
-        # Filter recommendations based on criteria
-        recommendations = [
+        # Main recommendation logic (exact match)
+        recommendations=[
             (
                 item['title'],
                 f"Matched {resource_type} titled '{item['title']}' on topic '{item['topic']}' in {item['language']} "
@@ -38,47 +35,61 @@ class LibraryExpertSystem(KnowledgeEngine):
             )
             for item in self.data
             if item['type'] == resource_type
-               and topic in item['topic'].lower()
-               and (language is None or language in item['language'].lower())  # Include all languages if None
+               and topic in item['topic'].lower ()
+               and language in item['language'].lower ()
                and item['rating'] >= min_rating
-               and (  # User-specific preferences
+               and (
                        (user_type == 'student' and resource_type == 'book') or
                        (user_type == 'teacher' and resource_type == 'journal') or
                        (user_type == 'researcher' and resource_type == 'article')
                )
         ]
 
-        print(f"[DEBUG] Matched Recommendations: {recommendations}")
+        # Alternative recommendations (if no match found, suggest similar topics or different languages)
+        alternative_recommendations=[
+            (
+                item['title'],
+                f"Alternative match: '{item['title']}' on topic '{item['topic']}' available in another language '{item['language']}' with rating {item['rating']}."
+            )
+            for item in self.data
+            if topic in item['topic'].lower ()  # Same topic, any resource type and language
+               and item['rating'] >= min_rating
+               and (user_type == 'student' or user_type == 'teacher' or user_type == 'researcher')
+        ]
 
-        # Declare recommendations and explanations fact
+        # Declare recommendations and alternative recommendations facts
         if recommendations:
-            self.declare(Fact(recommendation=[rec[0] for rec in recommendations],
-                              explanation=[rec[1] for rec in recommendations]))
+            self.declare ( Fact ( recommendation=[rec[0] for rec in recommendations],
+                                  explanation=[rec[1] for rec in recommendations] ) )
         else:
-            self.declare(Fact(recommendation=["No resources found matching your criteria."],
-                              explanation=["The system could not find any resources meeting all the provided criteria."]))
+            self.declare ( Fact ( recommendation=["No resources found matching your criteria."],
+                                  explanation=[
+                                      "The system could not find any resources meeting all the provided criteria."] ) )
 
-    @Rule(Fact(user_type='student'), Fact(resource_type='book'))
-    def explain_student_books(self):
-        """Explain rule for student book recommendations."""
-        self.declare(Fact(rule_applied="Student-specific rule: Recommends books that align with the topic."))
+        if alternative_recommendations:
+            self.declare ( Fact ( alternative_solution=[alt[0] for alt in alternative_recommendations],
+                                  alternative_explanation=[alt[1] for alt in alternative_recommendations] ) )
 
-    @Rule(Fact(user_type='teacher'), Fact(resource_type='journal'))
-    def explain_teacher_journals(self):
-        """Explain rule for teacher journal recommendations."""
-        self.declare(Fact(rule_applied="Teacher-specific rule: Recommends journals that align with the topic."))
-
-    @Rule(Fact(recommendation=MATCH.rec), Fact(explanation=MATCH.exp), salience=-1)
+    @Rule ( Fact ( recommendation=MATCH.rec ), Fact ( explanation=MATCH.exp ), salience=-1 )
     def output_recommendation_with_explanation(self, rec, exp):
         """Output the recommendations with explanations."""
-        print("Recommendations:")
-        for i, recommendation in enumerate(rec):
-            print(f"{i+1}. {recommendation}")
-            print(f"   Explanation: {exp[i]}")
-        print()
+        print ( "Recommendations:" )
+        for i, recommendation in enumerate ( rec ):
+            print ( f"{i + 1}. {recommendation}" )
+            print ( f"   Explanation: {exp[i]}" )
+        print ()
 
-    @Rule(Fact(recommendation=MATCH.rec), salience=-2)
+    @Rule ( Fact ( alternative_solution=MATCH.alt_rec ), Fact ( alternative_explanation=MATCH.alt_exp ), salience=-2 )
+    def output_alternative_solution(self, alt_rec, alt_exp):
+        """Output alternative solutions when main recommendations are unavailable."""
+        print ( "Alternative Recommendations:" )
+        for i, alt in enumerate ( alt_rec ):
+            print ( f"{i + 1}. {alt}" )
+            print ( f"   Explanation: {alt_exp[i]}" )
+        print ()
+
+    @Rule ( Fact ( recommendation=MATCH.rec ), salience=-3 )
     def output_no_recommendations(self, rec):
         """Handle cases where no recommendations are found."""
         if rec == ["No resources found matching your criteria."]:
-            print("No recommendations found.")
+            print ( "No recommendations found." )
