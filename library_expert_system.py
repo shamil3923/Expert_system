@@ -19,76 +19,70 @@ class LibraryExpertSystem(KnowledgeEngine):
         super().__init__(*args, **kwargs)
         self.data = load_data()
 
-    @Rule(Fact(user_type=MATCH.user_type), Fact(topic=MATCH.topic), Fact(resource_type=MATCH.resource_type),
-          Fact(language=MATCH.language), Fact(min_rating=MATCH.min_rating))
+    @Rule(Fact(user_type=MATCH.user_type),
+          Fact(topic=MATCH.topic),
+          Fact(resource_type=MATCH.resource_type),
+          Fact(language=MATCH.language),
+          Fact(min_rating=MATCH.min_rating))
     def recommend_resources(self, user_type, topic, resource_type, language, min_rating):
         """Recommend resources based on user inputs."""
-        topic = topic.strip().lower()
-        language = language.strip().lower() if language != "any" else ""  # Handle 'any' language
 
-        # Main recommendation logic (exact match)
-        recommendations = [
-            (
-                item['title'],
-                f"Matched {resource_type} titled '{item['title']}' on topic '{item['topic']}' in {item['language']} "
-                f"with rating {item['rating']} suitable for {user_type}."
-            )
-            for item in self.data
-            if item['type'] == resource_type
-               and topic in item['topic'].lower()
-               and (language in item['language'].lower() or not language)  # Match any language if empty
-               and item['rating'] >= min_rating
-               and (
-                       (user_type == 'student' and resource_type == 'book') or
-                       (user_type == 'teacher' and resource_type == 'journal') or
-                       (user_type == 'researcher' and resource_type == 'article')
-               )
-        ]
+        # Allow missing values (i.e., handle None)
+        topic = topic.strip().lower() if topic else None
+        language = language.strip().lower() if language else None
 
-        # Alternative recommendations (if no match found, suggest similar topics or different languages)
-        alternative_recommendations = [
-            (
-                item['title'],
-                f"Alternative match: '{item['title']}' on topic '{item['topic']}' available in another language '{item['language']}' with rating {item['rating']}."
-            )
-            for item in self.data
-            if topic in item['topic'].lower()  # Same topic, any resource type and language
-               and item['rating'] >= min_rating
-               and (user_type == 'student' or user_type == 'teacher' or user_type == 'researcher')
-        ]
+        recommendations = []
+        confidence_scores = []
 
-        # Declare recommendations and alternative recommendations facts
+        # Loop through data and calculate confidence based on available data
+        for item in self.data:
+            confidence = 100  # Start with full confidence
+
+            # Adjust confidence based on missing information
+            if topic and topic not in item['topic'].lower():
+                confidence -= 20  # Deduct confidence if topic doesn't match
+            if language and language not in item['language'].lower():
+                confidence -= 20  # Deduct confidence if language doesn't match
+
+            # Check if item matches the user type and resource type
+            if item['type'] == resource_type and item['rating'] >= min_rating:
+                if (user_type == 'student' and resource_type == 'book') or \
+                   (user_type == 'teacher' and resource_type == 'journal') or \
+                   (user_type == 'researcher' and resource_type == 'article'):
+                    recommendations.append(
+                        (
+                            item['title'],
+                            f"Matched {resource_type} titled '{item['title']}' on topic '{item['topic']}' in {item['language']} "
+                            f"with rating {item['rating']} suitable for {user_type}."
+                        )
+                    )
+                    confidence_scores.append(confidence)
+
+        # Declare facts for recommendations and their confidence scores
         if recommendations:
             self.declare(Fact(recommendation=[rec[0] for rec in recommendations],
-                              explanation=[rec[1] for rec in recommendations]))
+                              explanation=[rec[1] for rec in recommendations],
+                              confidence=confidence_scores))
         else:
             self.declare(Fact(recommendation=["No resources found matching your criteria."],
                               explanation=["The system could not find any resources meeting all the provided criteria."]))
 
+        # Alternative recommendations if no match found
+        alternative_recommendations = []
+        alternative_confidence = []
+
+        for item in self.data:
+            confidence = 100
+            if (not topic or topic in item['topic'].lower()) and item['rating'] >= min_rating:
+                alternative_recommendations.append(
+                    (
+                        item['title'],
+                        f"Alternative match: '{item['title']}' on topic '{item['topic']}' available in another language '{item['language']}' with rating {item['rating']}."
+                    )
+                )
+                alternative_confidence.append(confidence)
+
         if alternative_recommendations:
             self.declare(Fact(alternative_solution=[alt[0] for alt in alternative_recommendations],
-                              alternative_explanation=[alt[1] for alt in alternative_recommendations]))
-
-    @Rule(Fact(recommendation=MATCH.rec), Fact(explanation=MATCH.exp), salience=-1)
-    def output_recommendation_with_explanation(self, rec, exp):
-        """Output the recommendations with explanations."""
-        print("Recommendations:")
-        for i, recommendation in enumerate(rec):
-            print(f"{i + 1}. {recommendation}")
-            print(f"   Explanation: {exp[i]}")
-        print()
-
-    @Rule(Fact(alternative_solution=MATCH.alt_rec), Fact(alternative_explanation=MATCH.alt_exp), salience=-2)
-    def output_alternative_solution(self, alt_rec, alt_exp):
-        """Output alternative solutions when main recommendations are unavailable."""
-        print("Alternative Recommendations:")
-        for i, alt in enumerate(alt_rec):
-            print(f"{i + 1}. {alt}")
-            print(f"   Explanation: {alt_exp[i]}")
-        print()
-
-    @Rule(Fact(recommendation=MATCH.rec), salience=-3)
-    def output_no_recommendations(self, rec):
-        """Handle cases where no recommendations are found."""
-        if rec == ["No resources found matching your criteria."]:
-            print("No recommendations found.")
+                              alternative_explanation=[alt[1] for alt in alternative_recommendations],
+                              alternative_confidence=alternative_confidence))
